@@ -326,6 +326,49 @@ void PkgMetadataInfo::GeneratePkgMetadata() const
     }
 }
 
+void PkgMetadataInfo::GenerateDependentsLibrary() const
+{
+    auto llvmMod = module.GetLLVMModule();
+    auto& llvmCtx = module.GetLLVMContext();
+    auto depBuiltinMaps = module.GetCGContext().GetCompileOptions().indirectBuiltinDependencies;
+
+    if (depBuiltinMaps.empty()) {
+        return;
+    }
+
+    llvm::NamedMDNode *depLibsNode = llvmMod->getOrInsertNamedMetadata("llvm.dependent-libraries");
+
+    for (const std::string& fullPath : depBuiltinMaps) {
+        // 1. 拆分目录路径和纯文件名
+        // 例如: dirPath = "/home/rus/.../std/" , fileName = "std.math.cjo"
+        size_t slashPos = fullPath.find_last_of("/\\");
+        std::string dirPath = (slashPos == std::string::npos) ? "" : fullPath.substr(0, slashPos + 1);
+        std::string fileName = (slashPos == std::string::npos) ? fullPath : fullPath.substr(slashPos + 1);
+
+        // 2. 去除 ".cjo" 后缀 (得到 "std.math")
+        size_t extPos = fileName.rfind(".cjo");
+        if (extPos != std::string::npos) {
+            fileName = fileName.substr(0, extPos);
+        }
+
+        // 3. 将包名中的点号 '.' 替换为中划线 '-' (得到 "std-math")
+        for (char& c : fileName) {
+            if (c == '.') {
+                c = '-';
+            }
+        }
+
+        // 结果: "/home/rus/.../std/libcangjie-std-mathFFI.a"
+        std::string absoluteLibPath = dirPath + "libcangjie-" + fileName + "FFI.a";
+
+        // 5. 将绝对路径硬塞进 dependent-libraries
+        llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, absoluteLibPath) };
+        llvm::MDNode *Node = llvm::MDNode::get(llvmCtx, Ops);
+        depLibsNode->addOperand(Node);
+    }
+}
+
+
 void PkgMetadataInfo::AddPrimitiveTypeInfoToCorePkgInfo() const
 {
     auto primitiveTIsMD = module.GetLLVMModule()->getOrInsertNamedMetadata(METADATA_PRIMITIVE_TYPES);
