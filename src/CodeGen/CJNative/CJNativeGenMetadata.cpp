@@ -339,10 +339,9 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
     llvm::NamedMDNode *depLibsNode = llvmMod->getOrInsertNamedMetadata("llvm.dependent-libraries");
 
     for (const std::string& fullPath : depBuiltinMaps) {
-        // 1. 拆分目录路径和纯文件名
-        // 例如: dirPath = "/home/rus/.../std/" , fileName = "std.math.cjo"
+        // 1. 提取纯文件名
+        // 例如: fileName = "std.math.cjo"
         size_t slashPos = fullPath.find_last_of("/\\");
-        std::string dirPath = (slashPos == std::string::npos) ? "" : fullPath.substr(0, slashPos + 1);
         std::string fileName = (slashPos == std::string::npos) ? fullPath : fullPath.substr(slashPos + 1);
 
         // 2. 去除 ".cjo" 后缀 (得到 "std.math")
@@ -358,11 +357,11 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
             }
         }
 
-        // 结果: "/home/rus/.../std/libcangjie-std-mathFFI.a"
-        std::string absoluteLibPath = dirPath + "libcangjie-" + fileName + "FFI.a";
+        // 结果: "libcangjie-std-mathFFI.a" (仅库名，由链接器通过 -L 搜索路径查找)
+        std::string libName = "libcangjie-" + fileName + "FFI.a";
 
-        // 5. 将绝对路径硬塞进 dependent-libraries
-        llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, absoluteLibPath) };
+        // 将库名写入 dependent-libraries (链接器通过 -L 搜索路径查找)
+        llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, libName) };
         llvm::MDNode *Node = llvm::MDNode::get(llvmCtx, Ops);
         depLibsNode->addOperand(Node);
     }
