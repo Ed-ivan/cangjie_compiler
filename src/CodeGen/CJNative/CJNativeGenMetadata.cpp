@@ -339,10 +339,9 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
     llvm::NamedMDNode *depLibsNode = llvmMod->getOrInsertNamedMetadata("llvm.dependent-libraries");
 
     for (const std::string& fullPath : depBuiltinMaps) {
-        // 1. 拆分目录路径和纯文件名
-        // 例如: dirPath = "/home/rus/.../std/" , fileName = "std.math.cjo"
+        // 1. 提取纯文件名
+        // 例如: "std.math.cjo"
         size_t slashPos = fullPath.find_last_of("/\\");
-        std::string dirPath = (slashPos == std::string::npos) ? "" : fullPath.substr(0, slashPos + 1);
         std::string fileName = (slashPos == std::string::npos) ? fullPath : fullPath.substr(slashPos + 1);
 
         // 2. 去除 ".cjo" 后缀 (得到 "std.math")
@@ -351,18 +350,13 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
             fileName = fileName.substr(0, extPos);
         }
 
-        // 3. 将包名中的点号 '.' 替换为中划线 '-' (得到 "std-math")
-        for (char& c : fileName) {
-            if (c == '.') {
-                c = '-';
-            }
-        }
+        // 结果: ":libstd.math.bc" (bc 文件名，使用 ':' 前缀进行精确匹配)
+        // LLD 处理 llvm.dependent-libraries 时如同 -l 参数:
+        //   ":libstd.math.bc" → 在 -L 搜索路径中查找精确文件名 "libstd.math.bc"
+        // 可在 ld.lld 命令中添加 --trace 查看搜索过程
+        std::string libName = ":lib" + fileName + ".bc";
 
-        // 结果: "/home/rus/.../std/libcangjie-std-mathFFI.a"
-        std::string absoluteLibPath = dirPath + "libcangjie-" + fileName + "FFI.a";
-
-        // 5. 将绝对路径硬塞进 dependent-libraries
-        llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, absoluteLibPath) };
+        llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, libName) };
         llvm::MDNode *Node = llvm::MDNode::get(llvmCtx, Ops);
         depLibsNode->addOperand(Node);
     }
