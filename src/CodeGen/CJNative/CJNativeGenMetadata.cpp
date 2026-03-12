@@ -340,7 +340,7 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
 
     for (const std::string& fullPath : depBuiltinMaps) {
         // 1. 提取纯文件名
-        // 例如: fileName = "std.math.cjo"
+        // 例如: "std.math.cjo"
         size_t slashPos = fullPath.find_last_of("/\\");
         std::string fileName = (slashPos == std::string::npos) ? fullPath : fullPath.substr(slashPos + 1);
 
@@ -350,19 +350,12 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
             fileName = fileName.substr(0, extPos);
         }
 
-        // 3. 将包名中的点号 '.' 替换为中划线 '-' (得到 "std-math")
-        for (char& c : fileName) {
-            if (c == '.') {
-                c = '-';
-            }
-        }
+        // 结果: ":libstd.math.bc" (bc 文件名，使用 ':' 前缀进行精确匹配)
+        // LLD 处理 llvm.dependent-libraries 时如同 -l 参数:
+        //   ":libstd.math.bc" → 在 -L 搜索路径中查找精确文件名 "libstd.math.bc"
+        // 可在 ld.lld 命令中添加 --trace 查看搜索过程
+        std::string libName = ":lib" + fileName + ".bc";
 
-        // 结果: "cangjie-std-math" (标准 -l 格式的库名，不带 lib 前缀和 .a 后缀)
-        // LLD 处理 llvm.dependent-libraries 时如同 -l 参数，会自动搜索 libcangjie-std-math.a
-        // 可通过 --link-option="--trace" 查看 ld 对此段的搜索过程
-        std::string libName = "cangjie-" + fileName;
-
-        // 将库名写入 dependent-libraries (链接器通过 -L 搜索路径查找 lib<name>.a)
         llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, libName) };
         llvm::MDNode *Node = llvm::MDNode::get(llvmCtx, Ops);
         depLibsNode->addOperand(Node);
