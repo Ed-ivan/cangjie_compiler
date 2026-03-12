@@ -357,9 +357,10 @@ void PkgMetadataInfo::GenerateDependentsLibrary() const
             }
         }
 
-        // 结果: "cangjie-std-mathFFI" (标准 -l 格式的库名，不带 lib 前缀和 .a 后缀)
-        // LLD 处理 llvm.dependent-libraries 时如同 -l 参数，会自动搜索 libcangjie-std-mathFFI.a
-        std::string libName = "cangjie-" + fileName + "FFI";
+        // 结果: "cangjie-std-math" (标准 -l 格式的库名，不带 lib 前缀和 .a 后缀)
+        // LLD 处理 llvm.dependent-libraries 时如同 -l 参数，会自动搜索 libcangjie-std-math.a
+        // 可通过 --link-option="--trace" 查看 ld 对此段的搜索过程
+        std::string libName = "cangjie-" + fileName;
 
         // 将库名写入 dependent-libraries (链接器通过 -L 搜索路径查找 lib<name>.a)
         llvm::Metadata *Ops[] = { llvm::MDString::get(llvmCtx, libName) };
